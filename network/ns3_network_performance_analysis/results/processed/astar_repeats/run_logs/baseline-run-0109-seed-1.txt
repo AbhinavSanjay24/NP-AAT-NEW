@@ -1,0 +1,14 @@
+ROUTE_CHANGE time=0 client=Client1 priority=3 old=UNREACHABLE new=Client1->RelayA->Server1 cost=47.0273
+ROUTE_CHANGE time=0 client=Client2 priority=2 old=UNREACHABLE new=Client2->RelayB->Server2 cost=49.3607
+ROUTE_CHANGE time=0 client=Client3 priority=1 old=UNREACHABLE new=Client3->RelayG->Server3 cost=50.645
+ROUTE_CHANGE time=0 client=Client4 priority=3 old=UNREACHABLE new=Client4->RelayD->Server4 cost=47.0273
+TOPOLOGY clients=4 servers=4 relays=8 links=20 failure_type=link
+ROUTE_CHANGE_COUNT total=0
+TRAFFIC client=Client1 server=Server1 priority=3 rate_bps=2000000
+TRAFFIC client=Client2 server=Server2 priority=2 rate_bps=1000000
+TRAFFIC client=Client3 server=Server3 priority=1 rate_bps=512000
+TRAFFIC client=Client4 server=Server4 priority=3 rate_bps=2000000
+RUN_METADATA scenario=baseline seed=1 run=109
+ROUTE_CHANGE_COUNT total=0
+CLIENT_RX client=Client1 bytes=1996800
+FlowMonitor results saved to /home/abhi/ns-allinone-3.45/ns-3.45/priority_aware_routing/network/ns3_network_performance_analysis/results/raw/astar_repeats/baseline-run-0109-seed-1.xml

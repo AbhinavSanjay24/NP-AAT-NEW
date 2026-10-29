@@ -1,0 +1,3 @@
+scenario,packets_sent,packets_received,packets_lost,packet_loss_percent,pdr_percent,received_bytes,throughput_mbps,average_end_to_end_delay_ms,route_changes,failure_recovery_time_seconds
+Normal,10768,10756,12,0.1114,99.8886,5808240,5.80824,0.399393,,
+Failure,10768,10758,10,0.0929,99.9071,5809320,5.80932,0.406544,,

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Priority-Aware Dynamic Routing | A* Demo</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#172b4d;background:#f4f7fb}
+*{box-sizing:border-box}body{margin:0;padding:22px}
+header,.panel{background:white;border:1px solid #dce5f0;border-radius:14px;padding:18px;margin-bottom:16px}
+h1{font-size:25px;margin:0 0 8px}h2{font-size:17px;margin:0 0 12px}
+p{color:#5d6f86;line-height:1.5;margin:5px 0}
+.layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px}
+.controls{display:flex;flex-wrap:wrap;gap:9px;align-items:end;margin-top:14px}
+label{font-size:12px;font-weight:700;color:#536780;display:flex;flex-direction:column;gap:6px}
+select,button{font:inherit;border:1px solid #c8d6e7;border-radius:8px;padding:10px;background:#fff;color:#183153}
+button{cursor:pointer;font-weight:650}button.primary{background:#1769d2;color:white;border-color:#1769d2}
+button.danger{background:#fff0ef;color:#a32d26;border-color:#f2b6b2}
+button:hover{filter:brightness(.97)}button:focus,select:focus{outline:2px solid #75aaff}
+svg{width:100%;height:auto;display:block;background:#fbfdff;border:1px solid #e0e8f2;border-radius:12px}
+.edge{stroke:#bac7d5;stroke-width:3.4;fill:none}.edge.active{stroke:#09875c;stroke-width:5}
+.edge.failed{stroke:#d92d20;stroke-width:4;stroke-dasharray:8 6}
+.edge-label{font-size:12px;font-weight:700;fill:#183b63;text-anchor:middle;paint-order:stroke;stroke:#fbfdff;stroke-width:7px;stroke-linejoin:round}
+.node{stroke-width:3;cursor:pointer}.client{fill:#e8f1ff;stroke:#2774d8}.server{fill:#e8f1ff;stroke:#2774d8}
+.primary-relay{fill:#e6f7ef;stroke:#09875c}.backup-relay{fill:#fff;stroke:#8294a9}
+.node.failed{fill:#ffe4e1;stroke:#d92d20;stroke-dasharray:4 3}
+.node-label{font-size:12px;font-weight:700;fill:#1d3555;text-anchor:middle}
+.node-sub{font-size:10px;fill:#526982;text-anchor:middle}
+.pill{display:inline-block;padding:5px 9px;border-radius:20px;background:#e8f7ef;color:#08734d;font-size:12px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.stat{background:#f6f9fd;border:1px solid #e1e9f2;padding:12px;border-radius:10px}
+.stat small{display:block;color:#61758d;margin-bottom:5px}.stat strong{font-size:21px}
+.routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.route{border:1px solid #d9e4f1;padding:11px;border-radius:9px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.route b{display:block;margin-bottom:4px}.muted{color:#637890}.bad{color:#c12720;font-weight:700}
+#log{height:210px;overflow:auto;background:#111d2e;color:#dce9f8;padding:12px;border-radius:10px;font:12px/1.65 Consolas,monospace;white-space:pre-wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#596e86;margin-top:12px}
+.dot{display:inline-block;width:20px;height:4px;margin-right:5px;vertical-align:middle;background:#09875c}
+.dot.gray{background:#bac7d5}.dot.red{background:#d92d20}
+@media(max-width:850px){.layout{grid-template-columns:1fr}body{padding:10px}.routes{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Priority-Aware Dynamic Routing</h1>
+  <p>Interactive A* topology · 4 clients · 8 relays · 4 servers · 20 bidirectional links</p>
+  <span class="pill">LOCAL INTERACTIVE DEMONSTRATION</span>
+  <div class="controls">
+    <label>Route to inspect
+      <select id="client">
+        <option value="0">Client1 · HIGH · Priority 3 · 2 Mbps</option>
+        <option value="1">Client2 · MEDIUM · Priority 2 · 1 Mbps</option>
+        <option value="2">Client3 · LOW · Priority 1 · 512 kbps</option>
+        <option value="3">Client4 · HIGH · Priority 3 · 2 Mbps</option>
+      </select>
+    </label>
+    <label>Failure type
+      <select id="kind"><option value="link">Link failure</option><option value="node">Node failure</option></select>
+    </label>
+    <label id="targetLabel">Link to fail
+      <select id="target"></select>
+    </label>
+    <button class="danger" id="fail">Fail selected</button>
+    <button id="recover">Recover all</button>
+    <button id="reset" class="primary">Reset network</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main>
+    <section class="panel">
+      <h2>Network topology and edge costs</h2>
+      <p>Edge labels show effective cost for the selected client's priority: distance + congestion / priority. Green = selected route; red dashed = failed link.</p>
+      <svg id="network" viewBox="0 0 900 510" role="img" aria-label="Interactive network topology"></svg>
+      <div class="legend">
+        <span><i class="dot"></i>Selected A* route</span>
+        <span><i class="dot gray"></i>Available link</span>
+        <span><i class="dot red"></i>Failed link</span>
+        <span>Click a node to select a node-failure target.</span>
+      </div>
+      <div id="routes" class="routes"></div>
+    </section>
+  </main>
+  <aside>
+    <section class="panel">
+      <h2>Network status</h2>
+      <div class="stats">
+        <div class="stat"><small>Active routes</small><strong id="active">4 / 4</strong></div>
+        <div class="stat"><small>Failed nodes</small><strong id="failedNodes">0</strong></div>
+        <div class="stat"><small>Failed links</small><strong id="failedLinks">0</strong></div>
+        <div class="stat"><small>Selected route cost</small><strong id="cost">—</strong></div>
+      </div>
+      <p id="status">All nodes and links are available.</p>
+    </section>
+    <section class="panel">
+      <h2>Priority configuration</h2>
+      <p>Client1: <b>HIGH (3)</b> · 2 Mbps</p>
+      <p>Client2: <b>MEDIUM (2)</b> · 1 Mbps</p>
+      <p>Client3: <b>LOW (1)</b> · 512 kbps</p>
+      <p>Client4: <b>HIGH (3)</b> · 2 Mbps</p>
+      <p class="muted">Priority divides the congestion penalty in the edge-cost formula. This demo uses the topology and cost model from your NS-3 source.</p>
+    </section>
+    <section class="panel">
+      <h2>Routing event log</h2>
+      <div id="log" aria-live="polite"></div>
+    </section>
+  </aside>
+</div>
+
+<script>
+"use strict";
+const clients=["Client1","Client2","Client3","Client4"];
+const servers=["Server1","Server2","Server3","Server4"];
+const primary=["RelayA","RelayB","RelayC","RelayD"];
+const backup=["RelayE","RelayF","RelayG","RelayH"];
+const priorities=[3,2,1,3], rates=["2 Mbps","1 Mbps","512 kbps","2 Mbps"];
+const nodes={}, links=[];
+clients.forEach((n,i)=>nodes[n]={x:85,y:80+i*105,type:"client",i});
+servers.forEach((n,i)=>nodes[n]={x:815,y:80+i*105,type:"server",i});
+primary.forEach((n,i)=>nodes[n]={x:325,y:80+i*105,type:"primary",i});
+backup.forEach((n,i)=>nodes[n]={x:565,y:115+i*105,type:"backup",i});
+function add(a,b,congestion,weight){links.push({a,b,congestion,weight,key:[a,b].sort().join("|")})}
+const linkWeights=[
+ [3,4,2,3,2],
+ [5,8,6,9,7],
+ [4,6,5,8,3],
+ [7,5,9,6,4]
+];
+for(let i=0;i<4;i++){
+ const w=linkWeights[i];
+ add(clients[i],primary[i],7,w[0]);
+ add(primary[i],servers[i],7,w[1]);
+ add(clients[i],backup[i],0,w[2]);
+ add(backup[i],servers[i],0,w[3]);
+ add(primary[i],backup[i],0,w[4]);
+}
+const failedNodes=new Set(),failedLinks=new Set(),routes={};
+let logLines=[];
+const svg=document.getElementById("network");
+const $=id=>document.getElementById(id);
+function dist(a,b){return Math.hypot(nodes[a].x-nodes[b].x,nodes[a].y-nodes[b].y)/10}
+function edgeCost(e,p){return Math.min(10,e.weight+(e.congestion?Math.ceil(3/p):0))}
+function available(e){return !failedLinks.has(e.key)&&!failedNodes.has(e.a)&&!failedNodes.has(e.b)}
+function neighbors(n,p){return links.filter(e=>available(e)&&(e.a===n||e.b===n)).map(e=>({node:e.a===n?e.b:e.a,cost:edgeCost(e,p)}))}
+function astar(start,goal,p){
+ if(failedNodes.has(start)||failedNodes.has(goal))return {path:[],cost:Infinity};
+ const open=[{n:start,g:0,f:0}],best={[start]:0},parent={};
+ const closed=new Set();
+ while(open.length){
+  open.sort((a,b)=>a.f-b.f);
+  const cur=open.shift();
+  if(closed.has(cur.n))continue;
+  if(cur.n===goal){
+   const path=[goal];while(path[path.length-1]!==start)path.push(parent[path[path.length-1]]);
+   path.reverse();return {path,cost:best[goal]};
+  }
+  closed.add(cur.n);
+  for(const e of neighbors(cur.n,p)){
+   if(closed.has(e.node))continue;
+   const g=best[cur.n]+e.cost;
+   if(g<(best[e.node]??Infinity)){best[e.node]=g;parent[e.node]=cur.n;open.push({n:e.node,g,f:g});}
+  }
+ }
+ return {path:[],cost:Infinity};
+}
+function routeEdge(a,b){return [a,b].sort().join("|")}
+function currentStatusMessage(){
+ const active=Object.values(routes).filter(x=>x.path.length).length;
+ return "CURRENT STATUS: "+failedNodes.size+"/16 nodes failed, "+failedLinks.size+"/20 links failed, "+active+"/4 active routes.";
+}
+function record(msg){
+ const stamp=new Date().toLocaleTimeString();
+ const entries=[stamp+"  "+msg,stamp+"  "+currentStatusMessage()];
+ logLines.unshift(...entries);
+ logLines=logLines.slice(0,35);
+ $("log").textContent=logLines.join("\n");
+}
+function computeRoutes(reason){
+ const old={};
+ for(let i=0;i<4;i++)old[i]=routes[i]?.path?.join(" → ")||"";
+ for(let i=0;i<4;i++)routes[i]=astar(clients[i],servers[i],priorities[i]);
+
+ const entries=[];
+ const stamp=new Date().toLocaleTimeString();
+ if(reason && reason.startsWith("NODE FAILURE:")){
+  const failed=[...failedNodes];
+  reason="NODE FAILURE: "+failed.join(" and ")+" marked unavailable.";
+ }
+ if(reason)entries.push(stamp+"  "+reason);
+
+ for(let i=0;i<4;i++){
+  const now=routes[i].path.join(" → ")||"UNREACHABLE";
+  if(old[i]&&old[i]!==now){
+   if(now==="UNREACHABLE"){
+    entries.push(stamp+"  "+clients[i]+": no path available to "+servers[i]+".");
+   }else{
+    entries.push(stamp+"  "+clients[i]+": alternate route selected: "+now+".");
+   }
+  }
+ }
+ entries.push(stamp+"  "+currentStatusMessage());
+ if(reason && (reason.startsWith("NODE FAILURE:") || reason.startsWith("LINK FAILURE:"))){
+  logLines=[];
+ }
+ logLines.unshift(...entries);
+ logLines=logLines.slice(0,35);
+ $("log").textContent=logLines.join("\n");
+ render();
+}
+function lineSvg(e){
+ const a=nodes[e.a],b=nodes[e.b],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1;
+ const ux=dx/len,uy=dy/len;
+ let t=0.5,offset=18;
+ if(a.type==="client"&&b.type==="primary"){t=0.5;offset=-12;}
+ else if(a.type==="primary"&&b.type==="server"){t=0.5;offset=-12;}
+ else if(a.type==="client"&&b.type==="backup"){t=0.38;offset=22;}
+ else if(a.type==="backup"&&b.type==="server"){t=0.5;offset=20;}
+ else if(a.type==="primary"&&b.type==="backup"){t=0.68;offset=-2;}
+ const mx=a.x+dx*t-uy*offset;
+ const my=a.y+dy*t+ux*offset;
+ return {x1:a.x+ux*23,y1:a.y+uy*23,x2:b.x-ux*23,y2:b.y-uy*23,mx,my};
+}
+function esc(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
+function render(){
+ const i=+$("client").value,p=priorities[i],r=routes[i];
+ let out="";
+ for(const e of links){
+  const q=lineSvg(e),failed=failedLinks.has(e.key),active=r.path.length>1&&r.path.some((n,j)=>j<r.path.length-1&&routeEdge(n,r.path[j+1])===e.key);
+  out+=`<line class="edge ${failed?"failed":active&&!failed?"active":""}" x1="${q.x1}" y1="${q.y1}" x2="${q.x2}" y2="${q.y2}"/>`;
+  out+=`<text class="edge-label" x="${q.mx}" y="${q.my}" text-anchor="middle">${edgeCost(e,p)}</text>`;
+ }
+ for(const [name,n] of Object.entries(nodes)){
+  const failed=failedNodes.has(name),cls=n.type==="client"?"client":n.type==="server"?"server":n.type==="primary"?"primary-relay":"backup-relay";
+  out+=`<circle class="node ${cls} ${failed?"failed":""}" cx="${n.x}" cy="${n.y}" r="21" data-node="${name}"/>`;
+  out+=`<text class="node-label" x="${n.x}" y="${n.y+36}">${name}</text>`;
+  if(n.type==="client")out+=`<text class="node-sub" x="${n.x}" y="${n.y+49}">${["HIGH","MEDIUM","LOW","HIGH"][n.i]} · ${rates[n.i]}</text>`;
+ }
+ out+=`<text x="325" y="25" text-anchor="middle" fill="#526982" font-size="12">Primary relays</text><text x="565" y="25" text-anchor="middle" fill="#526982" font-size="12">Backup relays</text><text x="85" y="25" text-anchor="middle" fill="#526982" font-size="12">Clients</text><text x="815" y="25" text-anchor="middle" fill="#526982" font-size="12">Servers</text>`;
+ svg.innerHTML=out;
+ svg.querySelectorAll("[data-node]").forEach(el=>el.addEventListener("click",()=>{ $("kind").value="node";updateTargets();$("target").value=el.dataset.node;record("Selected node failure target: "+el.dataset.node); }));
+ $("active").textContent=Object.values(routes).filter(x=>x.path.length).length+" / 4";
+ $("failedNodes").textContent=failedNodes.size;$("failedLinks").textContent=failedLinks.size;
+ $("cost").textContent=r?.path.length?r.cost:"UNREACHABLE";
+ $("status").innerHTML=failedNodes.size||failedLinks.size?`<span class="bad">${failedNodes.size} node(s) and ${failedLinks.size} link(s) failed.</span> Routes recalculated.`:"All nodes and links are available.";
+ $("routes").innerHTML=clients.map((c,j)=>{const x=routes[j];return `<div class="route"><b>${c} (${["HIGH","MEDIUM","LOW","HIGH"][j]}) → ${servers[j]}</b>${x.path.length?esc(x.path.join(" → ")):"<span class='bad'>UNREACHABLE</span>"}<br><span class="muted">Cost: ${x.path.length?x.cost:"∞"} · Priority ${priorities[j]}</span></div>`}).join("");
+}
+function updateTargets(){
+ const kind=$("kind").value,old=$("target").value;
+ $("targetLabel").firstChild.textContent=kind==="link"?"Link to fail":"Node to fail";
+ $("target").innerHTML=kind==="node"?Object.keys(nodes).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(""):links.map(e=>`<option value="${esc(e.key)}">${esc(e.a)} ↔ ${esc(e.b)}</option>`).join("");
+ if([...$("target").options].some(o=>o.value===old))$("target").value=old;
+}
+$("kind").addEventListener("change",updateTargets);
+$("client").addEventListener("change",render);
+$("fail").addEventListener("click",()=>{
+ const kind=$("kind").value,t=$("target").value;
+ if(kind==="node"){
+  if(failedNodes.has(t)){record(t+" is already failed.");return}
+  failedNodes.add(t);computeRoutes("NODE FAILURE: "+t+" marked unavailable.");
+ }else{
+  if(failedLinks.has(t)){record("Link "+t.replace("|"," ↔ ")+" is already failed.");return}
+  failedLinks.add(t);computeRoutes("LINK FAILURE: "+t.replace("|"," ↔ ")+" marked unavailable.");
+ }
+});
+$("recover").addEventListener("click",()=>{
+ if(!failedNodes.size&&!failedLinks.size){record("No failed components to recover.");return}
+ failedNodes.clear();failedLinks.clear();computeRoutes("RECOVERY: all failed nodes and links restored.");
+});
+$("reset").addEventListener("click",()=>{failedNodes.clear();failedLinks.clear();logLines=[];computeRoutes("Network reset: all 16 nodes and 20 links available.");});
+updateTargets();
+computeRoutes("Initial topology loaded. A* routes calculated for all four clients.");
+</script>
+</body>
+</html>

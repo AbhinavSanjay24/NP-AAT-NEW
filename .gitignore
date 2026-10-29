@@ -1,17 +1,41 @@
+# Python temporary files
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
 
-results/raw/*
-results/processed/*
-results/graphs/*
-
-*.log
-*.pcap
-
-# NS-3 build files
+# NS-3 build artifacts
 build/
 .cache/
+*.o
+*.a
+*.so
 
-# Temporary files
+# Generated temporary files
+*.log
+*.pcap
 *.tmp
 *.swp
+*.bak
+*.docker-backup
+*.backup
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Node dependencies
+node_modules/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+
+# Browser demo backup files
+browser_demo/*.backup
+browser_demo/*.before-*
+
+browser_demo/*backup*
+browser_demo/*.before-*

@@ -1,0 +1,13 @@
+scenario,packets_sent,packets_received,packets_lost,packet_loss_percent,pdr_percent,received_bytes,throughput_mbps,average_end_to_end_delay_ms,route_changes,failure_recovery_time_seconds,run_number,seed,xml_file
+Failure,10768,10760,8,0.0743,99.9257,5810400,5.8104,0.403438,2,0.01,104,1,failure-run-0104-seed-1.xml
+Normal,10768,10763,5,0.0464,99.9536,5812020,5.81202,0.39259,0,,104,1,baseline-run-0104-seed-1.xml
+Failure,10768,10754,14,0.13,99.87,5807160,5.80716,0.411489,2,0.01,105,1,failure-run-0105-seed-1.xml
+Normal,10768,10754,14,0.13,99.87,5807160,5.80716,0.401217,0,,105,1,baseline-run-0105-seed-1.xml
+Failure,10768,10742,26,0.2415,99.7585,5800680,5.80068,0.411407,2,0.01,106,1,failure-run-0106-seed-1.xml
+Normal,10768,10749,19,0.1764,99.8236,5804460,5.80446,0.402999,0,,106,1,baseline-run-0106-seed-1.xml
+Failure,10768,10750,18,0.1672,99.8328,5805000,5.805,0.407658,2,0.01,107,1,failure-run-0107-seed-1.xml
+Normal,10768,10759,9,0.0836,99.9164,5809860,5.80986,0.397513,0,,107,1,baseline-run-0107-seed-1.xml
+Failure,10768,10760,8,0.0743,99.9257,5810400,5.8104,0.412456,2,0.01,108,1,failure-run-0108-seed-1.xml
+Normal,10768,10760,8,0.0743,99.9257,5810400,5.8104,0.402151,0,,108,1,baseline-run-0108-seed-1.xml
+Failure,10768,10749,19,0.1764,99.8236,5804460,5.80446,0.407988,2,0.01,109,1,failure-run-0109-seed-1.xml
+Normal,10768,10755,13,0.1207,99.8793,5807700,5.8077,0.399857,0,,109,1,baseline-run-0109-seed-1.xml
